@@ -10,5 +10,7 @@ The server receives requests from clients wishing to either upload or download a
 
 Also like maybe dont use this for real important stuff for now lol.
 
+TeleFile is licensed under the PolyForm Noncommercial License 1.0.0.
+
 
 

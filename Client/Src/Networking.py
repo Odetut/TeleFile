@@ -5,13 +5,13 @@ load_dotenv()
 
 # Function to send data to the server through HTTP
 def Send(Data):
-    requests.post(os.getenv("Address"),Data)
+    requests.post(os.getenv("ServerAddress"),Data)
     # NOTE: May want to make server update client if it recieved the data
 
 
 # Recieve the file along with where to write it to.
 def Receive(Code,Destination):
-    URL = f"http://{os.getenv('Address')}:{os.getenv('Port')}/{Code}"
+    URL = f"http://{os.getenv('ServerAddress')}:{os.getenv('Port')}/{Code}"
     # We use stream so the entire files contents wont be loaded into RAM at once.
     Response = requests.get(URL,stream=True)
 

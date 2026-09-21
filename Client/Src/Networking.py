@@ -3,10 +3,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Function to send data to the server through HTTP
-def Send(Data):
-    requests.post(os.getenv("ServerAddress"),Data)
-    # NOTE: May want to make server update client if it recieved the data
 
 
 # Recieve the file along with where to write it to.
@@ -39,7 +35,33 @@ def Heartbeat():
         if not HeartbeatEventObj.wait(15): # After 15 seconds runs out return false.
             #Run Cleanup function Here
             break
-        
+
+# Function to send data to the server through HTTP
+def Send(Data):
+    requests.post(os.getenv("ServerAddress"),Data)
+    
+
+"""
+So loading the file isnt fully loaded
+into RAM we read it in smaller portions.
+To use it combine it with Send E.g. Send(Upload(Filepath))
+"""
+
+def Upload(FilePath):
+    with open(FilePath,"rb") as File:
+        while True:
+            Chunk = File.read(1024*1024)
+
+            if not Chunk: # Python treats an empty byte as True
+                break
+
+            yield Chunk
+
+
+
+
+    
+
         
             
 

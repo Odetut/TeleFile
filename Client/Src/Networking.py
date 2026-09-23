@@ -47,12 +47,12 @@ into RAM we read it in smaller portions.
 To use it combine it with Send E.g. Send(Upload(Filepath))
 """
 
-def Upload(FilePath):
+def Upload(FilePath): #Replicated on Server
     with open(FilePath,"rb") as File:
         while True:
             Chunk = File.read(1024*1024)
 
-            if not Chunk: # Python treats an empty byte as True
+            if not Chunk: # Python treats an empty byte as False
                 break
 
             yield Chunk

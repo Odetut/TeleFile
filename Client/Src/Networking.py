@@ -38,7 +38,7 @@ def Heartbeat():
 
 # Function to send data to the server through HTTP
 def Send(Data):
-    requests.post(os.getenv("ServerAddress"),Data)
+    requests.post(os.getenv("ServerAddress"),Data) #TODO:Fix to use actual server address and port
     
 
 """

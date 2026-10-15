@@ -8,7 +8,7 @@ Uploads = (Path(__file__).parent.parent / "Uploads").resolve()
 dotenv.load_dotenv((Path(__file__).parent.parent / ".env").resolve())
 
 #TODO: Make it check if the code already exists, If true then generate another
-#Generates a ture random code and returns it
+#Generates a true random code and returns it
 def CodeGenerator():
     Code = ""
     for _ in range(8):

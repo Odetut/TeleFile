@@ -50,9 +50,10 @@ class MainWindow(QMainWindow):
 
 
     def UpdateUpload(self,FilePath):
+        if not FilePath: return
         self.UploadPage.findChild(QtWidgets.QLabel,"FileName").setText(f"File Name: {FilePath.split("/")[-1]}")
         self.UploadPage.findChild(QtWidgets.QLabel,"FileType").setText(f"File Type: {pathlib.Path(FilePath).suffix}")
-        self.UploadPage.findChild(QtWidgets.QLabel,"FileSize").setText(f"File Size: {round(pathlib.Path(FilePath).stat().st_size / 1024,2)} KB")
+        self.UploadPage.findChild(QtWidgets.QLabel,"FileSize").setText(f"File Size: {round(pathlib.Path(FilePath).stat().st_size / 1024)} KB")
 
 
         
@@ -66,6 +67,7 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
     WindowInstance = MainWindow()
+
 
 
 

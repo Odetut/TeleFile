@@ -82,15 +82,21 @@ def End(FileCache):
 def DuplicateCheck(Code):
     return Code in FileCache
 
+#Init WebSocket
 ServerSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-ServerSocket.bind((os.getenv("ServerAddress"),int(os.getenv("Port"))))
+ServerSocket.bind((os.getenv("ServerAddress"),int(os.getenv("WebPort"))))
 ServerSocket.listen(3) # Prototype supports 1 user at a time
 
 def AcceptConnections(): 
     ClientSocket,Address = ServerSocket.accept()
     SessionID = secrets.token_hex(32) 
-    if SessionID in Clients: # When the stars align this will run 💀
-        SessionID = secrets.token_hex(64)
+
+    while True: 
+        if SessionID in Clients:
+            SessionID = secrets.token_hex(32)  
+        else:
+            break
+
     print(f"Connection from {Address} has been established.")
     Clients[SessionID] = ClientSocket
     ClientSocket.sendall(f"SessionID:{SessionID}".encode()) # Send the session ID to the client
@@ -168,4 +174,4 @@ if not Started:
     print("Tough luck, Loser!")
     sys.exit(1)
 
-if StartOnRun: App.run(host=os.getenv("ServerAddress"),port=int(os.getenv("Port")))
+if StartOnRun: App.run(host=os.getenv("ServerAddress"),port=int(os.getenv("HttpPort")))

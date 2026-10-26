@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+#PLACEHOLDERS#
+SessionId = None
 
 
 # Recieve the file along with where to write it to.
@@ -37,17 +39,22 @@ def Heartbeat():
             break
 
 # Function to send data to the server through HTTP
-def Send(Data):
-    requests.post(os.getenv("ServerAddress"),Data) #TODO:Fix to use actual server address and port
+def Send(Data,Metadata):
     
+    requests.post(f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{SessionId}/Upload",
+                      data=Data,
+                      headers={
+                          "Filename": Metadata.get("Filename"),
+                          "FileType": Metadata.get("FileType")
+                      })
 
 """
 So loading the file isnt fully loaded
 into RAM we read it in smaller portions.
-To use it combine it with Send E.g. Send(Upload(Filepath))
+To use it combine it with Send E.g. Send(ReadFile(Filepath), Metadata)
 """
 
-def Upload(FilePath): #Replicated on Server
+def ReadFile(FilePath): #Replicated on Server
     with open(FilePath,"rb") as File:
         while True:
             Chunk = File.read(1024*1024)
@@ -56,6 +63,13 @@ def Upload(FilePath): #Replicated on Server
                 break
 
             yield Chunk
+
+
+def GetMetadata(FilePath):
+    return {
+        "Filename": os.path.basename(FilePath),
+        "FileType": os.path.splitext(FilePath)[1]
+    }
 
 
 

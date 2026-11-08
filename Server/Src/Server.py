@@ -61,13 +61,13 @@ def Start():
         FileCache = {}
         print("Permission denied while trying to read Metadata.json.Session will continue, but changes will not be saved on exit.")        
        
-
-        return True, FileCache
-
-
-
-
     print("Server Successfully started") #TODO:Change to a log
+    return True, FileCache
+
+
+
+
+    
 
 # All things that Start() must End()
 def End(FileCache):
@@ -163,6 +163,13 @@ def Upload(SessionID):
     }
 
 
+@App.route("/favicon.ico")
+def Favicon():
+    return Response(status=204) 
+
+@App.route("/DoAFlip")
+def DoAFlip():
+    return Response("¯\_(ツ)_/¯",status=418)
 
 
 # Isnt funny the main program is all the way down here, Just a funny thought

@@ -29,6 +29,15 @@ class MainWindow(QMainWindow):
         self.DownloadButton.clicked.connect(lambda: self.SwitchWindow("DownloadScreen"))
         self.UploadButton.clicked.connect(lambda: self.SwitchWindow("UploadPage"))
 
+        self.DownloadPage = self.findChild(QtWidgets.QWidget,"DownloadScreen")
+        self.DownloadPage.findChild(QtWidgets.QPushButton,"DownloadButton").clicked.connect(lambda: Networking.Receive(self.DownloadPage.findChild(QtWidgets.QPlainTextEdit,"CodeInput").toPlainText()))
+
+        Success = Networking.ConnectivityCheck()
+        if not Success:
+            self.SwitchWindow("ServerNotFound")
+                
+
+
     def PromptFileSelect(self):
         FilePath, _ = QtWidgets.QFileDialog.getOpenFileName(
         self,
@@ -55,8 +64,7 @@ class MainWindow(QMainWindow):
         self.UploadPage.findChild(QtWidgets.QLabel,"FileType").setText(f"File Type: {pathlib.Path(FilePath).suffix}")
         self.UploadPage.findChild(QtWidgets.QLabel,"FileSize").setText(f"File Size: {round(pathlib.Path(FilePath).stat().st_size / 1024)} KB")
 
-
-        
+  
 
 
 
@@ -67,6 +75,7 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
     WindowInstance = MainWindow()
+    
 
 
 

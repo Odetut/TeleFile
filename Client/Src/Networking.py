@@ -1,5 +1,6 @@
-import socket,requests,os,threading
+import socket,requests,os,threading,sys
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
 
@@ -8,10 +9,17 @@ SessionId = None
 
 
 # Recieve the file along with where to write it to.
-def Receive(Code,Destination):
-    URL = f"http://{os.getenv('ServerAddress')}:{os.getenv('Port')}/{Code}"
+def Receive(Code):
+    URL = f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{Code}"
     # We use stream so the entire files contents wont be loaded into RAM at once.
     Response = requests.get(URL,stream=True)
+
+    if Response.headers.get("Filename") is None:
+        Filename = Code
+    else:
+        Filename = Response.headers.get("Filename")
+
+    Destination = Path.home() /"Downloads"/f"{Filename}"
 
     if Response.status_code == 200:
         with open(Destination,"wb") as File:
@@ -71,12 +79,80 @@ def GetMetadata(FilePath):
         "FileType": os.path.splitext(FilePath)[1]
     }
 
+# Temporary # 
+"""
+The following may be changed/Moved in the future.
+"""
+
+
+def LaunchSocket(): #TODO: Timeouts for http and websocket
+    global Socket
+    Socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+
+    Socket.connect((os.getenv("ServerAddress"),int(os.getenv("WebPort"))))
+    SessionId = Socket.recv(1024).decode() # Recieve the session ID from the server
+    if SessionId.startswith("SessionID:"):
+        SessionId = SessionId.split(":")[1]
+
+    else:
+        print("Failed to receive a valid SessionID from the server.")
+        return False, "InvalidSessionID"
+
+
+    print(f"Connected to server with SessionID: {SessionId}")
 
 
 
+def End():
+    Socket.close()
+
+
+
+
+def Ping(): # We dont instantly return true if the Http responds as we also need the WebSocket to respond. If either fails we return false.
+    # Http Check
+    try:
+        Response = requests.get(f"http://{os.getenv('ServerAddress')}:{os.getenv('Port')}/Ping!")
+        if Response.text == "Pong!":
+            print("Server is reachable via HTTP.")
+        else:
+            print("Server is reachable via HTTP, but got an unexpected response.") 
+            
+    except requests.exceptions.RequestException as e:
+        print(f"Error pinging server: {e}")
+        return False, "HTTPError"
     
+    # WebSocket Check
+    try:
+        Socket.sendall(b"Ping")
+        # Wait for a response from the server
+        Response = Socket.recv(1024)
 
-        
+        if Response == b"Pong": 
+            # We dont check if its an unexpected response because the message could be intended for another system
+            print("Server is reachable via WebSocket.")
+        return True
+    
+    except socket.error as e:
+        print(f"Error connecting to WebSocket server: {e}")
+        return False, "WebSocketError"
+
+# End of Temporary #
+
+
+def ConnectivityCheck():
+    try:
+        requests.get(f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/Ping!", timeout=10)  
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"Error checking connectivity: {e}")
+        return False
+
+# I added this cause I kept pressing the run keybinds lol
+
+if __name__ == "__main__":
+    print("This file is not meant to be run directly. Please run the main client application instead.")
+    sys.exit(1)  
             
 
 

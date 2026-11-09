@@ -145,7 +145,7 @@ def ConnectivityCheck():
         requests.get(f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/Ping!", timeout=10)  
         return True
     except requests.exceptions.RequestException as e:
-        print(f"Error checking connectivity: {e}")
+        #print(f"Error checking connectivity: {e}")
         return False
 
 # I added this cause I kept pressing the run keybinds lol

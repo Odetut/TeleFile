@@ -3,10 +3,17 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget
 from PyQt5.QtGui import QIcon
 import sys, pathlib, Networking
 
+DebugModeSwitches = {
+    "RequiresServer": False,
+
+}
 
 Window = (pathlib.Path(__file__).parent.parent / "UI" / "Main.ui").resolve()
 
 AppIcon = QIcon(str((pathlib.Path(__file__).parent.parent / "Images" / "Logo.ico").resolve()))
+
+
+
 
 
 
@@ -16,6 +23,10 @@ class MainWindow(QMainWindow):
         uic.loadUi(str(Window), self)
         self.setWindowIcon(AppIcon)
         self.show()
+        self.TargetFile = None
+        
+           
+                    
 
         
         self.DownloadButton = self.findChild(QtWidgets.QPushButton,"ToDownload")
@@ -23,7 +34,12 @@ class MainWindow(QMainWindow):
         
         self.UploadPage = self.findChild(QtWidgets.QWidget,"UploadPage")
         self.UploadPage.findChild(QtWidgets.QPushButton,"UploadButton").clicked.connect(lambda: self.PromptFileSelect())
-        
+        self.UploadPage.findChild(QtWidgets.QPushButton,"SendButton").clicked.connect(lambda: Networking.Send(Networking.ReadFile(self.TargetFile),Networking.GetMetadata(self.TargetFile)))
+        SendButton = self.UploadPage.findChild(QtWidgets.QPushButton,"SendButton")
+
+        if self.TargetFile is None:
+            SendButton.setEnabled(False)
+
         self.UploadPage.findChild(QtWidgets.QPushButton,"CancelButton").clicked.connect(lambda: self.SwitchWindow("Home"))
 
         self.DownloadButton.clicked.connect(lambda: self.SwitchWindow("DownloadScreen"))
@@ -32,8 +48,15 @@ class MainWindow(QMainWindow):
         self.DownloadPage = self.findChild(QtWidgets.QWidget,"DownloadScreen")
         self.DownloadPage.findChild(QtWidgets.QPushButton,"DownloadButton").clicked.connect(lambda: Networking.Receive(self.DownloadPage.findChild(QtWidgets.QPlainTextEdit,"CodeInput").toPlainText()))
 
+
+
+
+
+
+
+
         Success = Networking.ConnectivityCheck()
-        if not Success:
+        if not Success and DebugModeSwitches["RequiresServer"] == True:
             self.SwitchWindow("ServerNotFound")
                 
 
@@ -45,6 +68,17 @@ class MainWindow(QMainWindow):
         "",
         "All Files (*.*)")
         self.UpdateUpload(FilePath)
+        self.TargetFile = FilePath
+        
+        
+        SendButton = self.UploadPage.findChild(QtWidgets.QPushButton,"SendButton")
+        if self.TargetFile is not None:
+            SendButton.setEnabled(True)
+        
+
+
+
+
 
        
 
@@ -57,6 +91,12 @@ class MainWindow(QMainWindow):
         if not NewWindow: return
         self.PageStack.setCurrentWidget(NewWindow)
 
+        if NewWindow.objectName() == "UploadPage":
+            self.UploadPage.findChild(QtWidgets.QLabel,"FileName").setText("File Name: FileNotFound")
+            self.UploadPage.findChild(QtWidgets.QLabel,"FileType").setText("File Type: FileNotFound")
+            self.UploadPage.findChild(QtWidgets.QLabel,"FileSize").setText("File Size: FileNotFound")
+            SendButton = self.UploadPage.findChild(QtWidgets.QPushButton,"SendButton")
+            SendButton.setEnabled(False)
 
     def UpdateUpload(self,FilePath):
         if not FilePath: return
@@ -65,9 +105,6 @@ class MainWindow(QMainWindow):
         self.UploadPage.findChild(QtWidgets.QLabel,"FileSize").setText(f"File Size: {round(pathlib.Path(FilePath).stat().st_size / 1024)} KB")
 
   
-
-
-
 
         
 

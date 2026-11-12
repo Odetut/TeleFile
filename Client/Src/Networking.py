@@ -4,8 +4,7 @@ from pathlib import Path
 
 load_dotenv()
 
-#PLACEHOLDERS#
-SessionId = None
+
 
 
 # Recieve the file along with where to write it to.
@@ -88,10 +87,6 @@ def GetMetadata(FilePath):
         "FileType": os.path.splitext(FilePath)[1]
     }
 
-# Temporary # 
-"""
-The following may be changed/Moved in the future.
-"""
 
 
 def LaunchSocket(): #TODO: Timeouts for http and websocket
@@ -101,7 +96,7 @@ def LaunchSocket(): #TODO: Timeouts for http and websocket
     Socket.connect((os.getenv("ServerAddress"),int(os.getenv("WebPort"))))
     SessionId = Socket.recv(1024).decode() # Recieve the session ID from the server
     if SessionId.startswith("SessionID:"):
-        SessionId = SessionId.split(":")[1]
+        SessionId = SessionId.split(":",1)[1]
 
     else:
         print("Failed to receive a valid SessionID from the server.")
@@ -109,14 +104,29 @@ def LaunchSocket(): #TODO: Timeouts for http and websocket
 
 
     print(f"Connected to server with SessionID: {SessionId}")
+    return True, SessionId
 
 
+
+
+
+def Start():
+    Success,Result = LaunchSocket()
+    if not Success:
+        return False,Result
+
+    return True,Result
+    
 
 def End():
     Socket.close()
 
 
 
+# Temporary # 
+"""
+The following may be changed/Moved in the future.
+"""
 
 def Ping(): # We dont instantly return true if the Http responds as we also need the WebSocket to respond. If either fails we return false.
     # Http Check

@@ -51,7 +51,9 @@ class MainWindow(QMainWindow):
 
         #OnPressed funtions
         def DownloadButtonPress():
-            Success,Err =  Networking.Receive(self.DownloadPage.findChild(QtWidgets.QPlainTextEdit,"CodeInput").toPlainText())
+            Input = self.DownloadPage.findChild(QtWidgets.QPlainTextEdit,"CodeInput").toPlainText()
+            if len(Input) < 8: return 
+            Success,Err =  Networking.Receive(Input)
 
             if not Success:
                 self.AppCrash(Err) 

@@ -1,10 +1,12 @@
-import socket,requests,os,threading,sys
+import socket,requests,os,threading,sys,websockets
 from dotenv import load_dotenv
 from pathlib import Path
+from websockets.sync.client import connect
 
 load_dotenv()
 
-
+#Temporary
+SessionId = None
 
 
 # Recieve the file along with where to write it to.
@@ -89,7 +91,7 @@ def GetMetadata(FilePath):
 
 
 
-def LaunchSocket(): #TODO: Timeouts for http and websocket
+def LaunchSocketLEGACY(): #TODO: Timeouts for http and websocket
     global Socket
     Socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
@@ -107,11 +109,24 @@ def LaunchSocket(): #TODO: Timeouts for http and websocket
     return True, SessionId
 
 
+def LaunchSocket():
+    global Socket
+    Socket = connect(f"ws://{os.getenv('ServerAddress')}:{os.getenv('WebPort')}")
+    SessionId = Socket.recv(30)
+
+    if SessionId.startswith("SessionID:"):
+        SessionId = SessionId.split(":",1)[1]
+        return True,SessionId
+    else:
+        Socket.close(code=1001,reason="Server provided unexpected input.")
+        return False,f"UnexpectedMsg:{SessionId}"
+
 
 
 
 def Start():
     Success,Result = LaunchSocket()
+
     if not Success:
         return False,Result
 
@@ -127,7 +142,7 @@ def End():
 """
 The following may be changed/Moved in the future.
 """
-
+# OUTDATED - May be deprecated
 def Ping(): # We dont instantly return true if the Http responds as we also need the WebSocket to respond. If either fails we return false.
     # Http Check
     try:
@@ -141,20 +156,6 @@ def Ping(): # We dont instantly return true if the Http responds as we also need
         print(f"Error pinging server: {e}")
         return False, "HTTPError"
     
-    # WebSocket Check
-    try:
-        Socket.sendall(b"Ping")
-        # Wait for a response from the server
-        Response = Socket.recv(1024)
-
-        if Response == b"Pong": 
-            # We dont check if its an unexpected response because the message could be intended for another system
-            print("Server is reachable via WebSocket.")
-        return True
-    
-    except socket.error as e:
-        print(f"Error connecting to WebSocket server: {e}")
-        return False, "WebSocketError"
 
 # End of Temporary #
 

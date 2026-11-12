@@ -10,27 +10,30 @@ SessionId = None
 
 # Recieve the file along with where to write it to.
 def Receive(Code):
-    URL = f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{Code}"
-    # We use stream so the entire files contents wont be loaded into RAM at once.
-    Response = requests.get(URL,stream=True)
+    try:
+        URL = f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{Code}"
+        # We use stream so the entire files contents wont be loaded into RAM at once.
+        Response = requests.get(URL,stream=True)
 
-    if Response.headers.get("Filename") is None:
-        Filename = Code
-    else:
-        Filename = Response.headers.get("Filename")
+        if Response.headers.get("Filename") is None:
+            Filename = Code
+        else:
+            Filename = Response.headers.get("Filename")
 
-    Destination = Path.home() /"Downloads"/f"{Filename}"
+        Destination = Path.home() /"Downloads"/f"{Filename}"
 
-    if Response.status_code == 200:
-        with open(Destination,"wb") as File:
-            for Chunk in Response.iter_content(chunk_size=1024): # Accept 1024 bytes per chunk
-                File.write(Chunk) #Writes the bytes to the file
+        if Response.status_code == 200:
+            with open(Destination,"wb") as File:
+                for Chunk in Response.iter_content(chunk_size=1024): # Accept 1024 bytes per chunk
+                    File.write(Chunk) #Writes the bytes to the file
 
-        return True,None
+            return True,None
 
-    #File was not found return to the client as a failure.
-    elif Response.status_code == 404:
-        return False, "FileNotFound"
+        #File was not found return to the client as a failure.
+        elif Response.status_code == 404:
+            return False, "FileNotFound"
+    except Exception as e:
+        return False,e    
 
 
 HeartbeatEventObj = threading.Event() 
@@ -48,13 +51,17 @@ def Heartbeat():
 
 # Function to send data to the server through HTTP
 def Send(Data,Metadata):
+    try:
     
-    requests.post(f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{SessionId}/Upload",
-                      data=Data,
-                      headers={
-                          "Filename": Metadata.get("Filename"),
-                          "FileType": Metadata.get("FileType")
-                      })
+        requests.post(f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{SessionId}/Upload",
+                        data=Data,
+                        headers={
+                            "Filename": Metadata.get("Filename"),
+                            "FileType": Metadata.get("FileType")
+                        })
+        return True,None
+    except Exception:
+        return False, "SendError"
 
 """
 So loading the file isnt fully loaded
@@ -74,6 +81,8 @@ def ReadFile(FilePath): #Replicated on Server
 
 
 def GetMetadata(FilePath):
+    if not os.path.isfile(FilePath):
+        return None
     return {
         "Filename": os.path.basename(FilePath),
         "FileType": os.path.splitext(FilePath)[1]
@@ -151,6 +160,8 @@ def ConnectivityCheck():
 # I added this cause I kept pressing the run keybinds lol
 
 if __name__ == "__main__":
+    
+   
     print("This file is not meant to be run directly. Please run the main client application instead.")
     sys.exit(1)  
             

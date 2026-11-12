@@ -14,9 +14,6 @@ AppIcon = QIcon(str((pathlib.Path(__file__).parent.parent / "Images" / "Logo.ico
 
 
 
-
-
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -28,13 +25,13 @@ class MainWindow(QMainWindow):
            
                     
 
-        
+        # Window defenitions
         self.DownloadButton = self.findChild(QtWidgets.QPushButton,"ToDownload")
         self.UploadButton = self.findChild(QtWidgets.QPushButton,"ToUpload")
         
         self.UploadPage = self.findChild(QtWidgets.QWidget,"UploadPage")
         self.UploadPage.findChild(QtWidgets.QPushButton,"UploadButton").clicked.connect(lambda: self.PromptFileSelect())
-        self.UploadPage.findChild(QtWidgets.QPushButton,"SendButton").clicked.connect(lambda: Networking.Send(Networking.ReadFile(self.TargetFile),Networking.GetMetadata(self.TargetFile)))
+        self.UploadPage.findChild(QtWidgets.QPushButton,"SendButton").clicked.connect(lambda: SendButtonPress())
         SendButton = self.UploadPage.findChild(QtWidgets.QPushButton,"SendButton")
 
         if self.TargetFile is None:
@@ -46,7 +43,28 @@ class MainWindow(QMainWindow):
         self.UploadButton.clicked.connect(lambda: self.SwitchWindow("UploadPage"))
 
         self.DownloadPage = self.findChild(QtWidgets.QWidget,"DownloadScreen")
-        self.DownloadPage.findChild(QtWidgets.QPushButton,"DownloadButton").clicked.connect(lambda: Networking.Receive(self.DownloadPage.findChild(QtWidgets.QPlainTextEdit,"CodeInput").toPlainText()))
+        self.DownloadPage.findChild(QtWidgets.QPushButton,"DownloadButton").clicked.connect(lambda:DownloadButtonPress())
+        self.CrashPage = self.findChild(QtWidgets.QWidget,"CrashPage")
+        self.CrashPage.findChild(QtWidgets.QPushButton,"ExitButton").clicked.connect(lambda: ExitProgram())
+        #End of Window defenitions
+
+
+        #OnPressed funtions
+        def DownloadButtonPress():
+            Success,Err =  Networking.Receive(self.DownloadPage.findChild(QtWidgets.QPlainTextEdit,"CodeInput").toPlainText())
+
+            if not Success:
+                self.AppCrash(Err) 
+
+        def ExitProgram():
+            sys.exit()
+
+        def SendButtonPress():
+            Success,Err = Networking.Send(Networking.ReadFile(self.TargetFile),Networking.GetMetadata(self.TargetFile))
+
+            if not Success:
+                self.AppCrash(Err)
+            
 
 
 
@@ -76,12 +94,7 @@ class MainWindow(QMainWindow):
             SendButton.setEnabled(True)
         
 
-
-
-
-
-       
-
+    
 
     def SwitchWindow(self,NewWindow):
         self.PageStack = self.findChild(QStackedWidget,"stackedWidget",)
@@ -104,7 +117,9 @@ class MainWindow(QMainWindow):
         self.UploadPage.findChild(QtWidgets.QLabel,"FileType").setText(f"File Type: {pathlib.Path(FilePath).suffix}")
         self.UploadPage.findChild(QtWidgets.QLabel,"FileSize").setText(f"File Size: {round(pathlib.Path(FilePath).stat().st_size / 1024)} KB")
 
-  
+    def AppCrash(self,ErrorMessage):
+        self.SwitchWindow("CrashPage")
+        self.findChild(QtWidgets.QLabel,"ErrorLabel").setText(f"Error Message: {ErrorMessage}")
 
         
 
@@ -112,6 +127,8 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
     WindowInstance = MainWindow()
+    
+    
     
 
 

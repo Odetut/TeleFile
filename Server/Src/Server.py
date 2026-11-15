@@ -1,5 +1,5 @@
 import json,secrets,dotenv,string,os,sys,subprocess,asyncio,websockets,threading
-import logging,datetime
+import logging,datetime,atexit
 from flask import Flask,Response,request
 from pathlib import Path
 from websockets.asyncio.server import serve
@@ -9,6 +9,7 @@ StartOnRun = False
 LoggingDir = (Path(__file__).parent.parent/ "Logs").resolve()
 Uploads = (Path(__file__).parent.parent / "Uploads").resolve()
 dotenv.load_dotenv((Path(__file__).parent.parent / ".env").resolve())
+WebSocketLoop = None
 Clients = {}
 
 
@@ -34,7 +35,7 @@ def CodeGenerator():
     return Code
 
 def ReadFile(Code): #Replicated on client
-    Target = Uploads/ Code
+    Target = Uploads/ f"{Code}.bin"
     with open(Target,"rb") as File:
         while True:
             Chunk = File.read(1024*1024)
@@ -42,6 +43,18 @@ def ReadFile(Code): #Replicated on client
                 break
 
             yield Chunk
+
+
+
+def DeleteFile(Code):
+    FileCache.pop(Code, None)
+
+    try:
+        os.remove(Uploads /f"{Code}.bin")
+
+    except Exception:
+        logging.exception(f"Failed to delete {Code}.bin.")
+
 
 def Start():
     
@@ -51,8 +64,8 @@ def Start():
         str((Path(__file__).parent.parent / "Requirements.txt").resolve())
         ],check=True)
 
-    except subprocess.CalledProcessError as e:
-        logging.exception(f"Error installing requirements")
+    except subprocess.CalledProcessError:
+        logging.exception("Error installing requirements")
         return False,None
     logging.info("Succesfully installed requirements continuing Start()")
 
@@ -88,10 +101,15 @@ def Start():
 
 # All things that Start() must End()
 def End(FileCache):
-    with open(Path(__file__).parent / "Metadata.json","w") as File:
-        logging.info("Saving Metadata.json...")
-        File.write(json.dumps(FileCache,indent=4)) 
-    CloseConnections()
+    if not FileCache is None:
+        with open(Path(__file__).parent / "Metadata.json","w") as File:
+            logging.info("Saving Metadata.json...")
+            File.write(json.dumps(FileCache,indent=4)) 
+
+    
+        
+   
+    
 
     
 
@@ -112,53 +130,35 @@ async def AcceptConnections(ClientSocket):
         else:
             break
 
-    logging.info(f"Connection from {ClientSocket.remote_address[1]} has been established.")
+    logging.info(f"Connection from {ClientSocket.remote_address[0]} has been established.")
     Clients[SessionID] = ClientSocket
-    await ClientSocket.send(f"SessionID:{SessionID}")
-
-
+    
     # In the future this would dispatch messages to appropiate services
     try:
+        await ClientSocket.send(f"SessionID:{SessionID}")
         async for Message in ClientSocket:
             pass
+
     finally:
         logging.info(f"Dead client removing: {SessionID}")
         Clients.pop(SessionID, None)
 
 
 async def CloseConnections():
-    for _,Socket in Clients.items():
+    for _,Socket in list(Clients.items()):
         await Socket.close(code=1001,reason="Shutting down")
 
 
 
-    
-   
-# def DisconnectLEGACY(SessionID):
-#     if SessionID in Clients:
-#         Clients[SessionID].close()
-#         del Clients[SessionID]
-#         print(f"Client {SessionID} has been disconnected.")
-#     else:
-#         print(f"No client with SessionID {SessionID} found.")
-
-
-def Disconnect(SessionId,Reason):
+async def Disconnect(SessionId,Reason):
     if SessionId in Clients:
-        Clients[SessionId].close(code=1000,reason=Reason)
-        del Clients[SessionId]
+        await Clients[SessionId].close(code=1000,reason=Reason)
+        
 
         logging.info(f"Client {SessionId} has been disconnected.")
     else:
         logging.warning(f"No client with SessionID {SessionId} found.")
 
-
-# def SendToClientLEGACY(SessionID,Data):
-#     if SessionID in Clients:
-#         Clients[SessionID].sendall(Data.encode())
-#         print(f"Sent data to client {SessionID}.")
-#     else:
-#         print(f"No client with SessionID {SessionID} found.")
 
 async def SendToClient(SessionId,Data):
     if SessionId in Clients:
@@ -169,7 +169,16 @@ async def SendToClient(SessionId,Data):
         logging.warning(f"No client with SessionID {SessionId} found.")
 
 
+def ReadMetadata(Code):
+    FileData = FileCache.get(Code)
+    if not FileData:
+        return None,None
+    
+    FileName = FileData.get("FileName")
+    FileSize = FileData.get("FileSize")
 
+    return FileName,FileSize
+    
 
 
 
@@ -184,8 +193,23 @@ def Callback():
 
 
 @App.route("/<Code>")
-def Download(Code):#TODO: Make it so server adds Filename and ext to client
-    return Response(ReadFile(Code),mimetype = "application/octet-stream")
+def Download(Code):
+    FileName,FileSize = ReadMetadata(Code)
+
+    DownloadResponse = Response(
+        ReadFile(Code),
+        mimetype="application/octet-stream",
+        headers= {
+            "Filename" : FileName,
+            "FileSize" : FileSize
+            }
+        )
+    
+
+    DownloadResponse.call_on_close(lambda: DeleteFile(Code))
+
+    return DownloadResponse
+    
 
 
 @App.route("/<SessionID>/Upload",methods = ["POST"])
@@ -195,7 +219,11 @@ def Upload(SessionID):
     while Check: 
         FileCode = CodeGenerator()
         Check = DuplicateCheck(FileCode)
-    SendToClient(SessionID,f"FileCode:{FileCode}") 
+
+    asyncio.run_coroutine_threadsafe(
+    SendToClient(SessionID, f"FileCode:{FileCode}"),
+    WebSocketLoop
+    )
 
     with open(Uploads/f"{FileCode}.bin","wb") as File: #Save file as a binary 
         while True: 
@@ -208,9 +236,10 @@ def Upload(SessionID):
 
     
     FileCache[FileCode] = {
-        "Filename":request.headers.get("Filename"),
-        "FileType":request.headers.get("FileType")   
+        "Name":request.headers.get("Filename"),
+        "Size":request.headers.get("FileType")   # Change  
     }
+    return "Recieving"
 
 
 @App.route("/favicon.ico")
@@ -221,11 +250,14 @@ def Favicon():
 def DoAFlip():
     return Response("¯\_(ツ)_/¯",status=418)
 
+atexit.register(lambda: End(FileCache))
+
+
+
 
 # Isnt funny the main program is all the way down here, Just a funny thought
 
 # Conditional present for debugging purposes
-logging.debug("Test")
 Started,FileCache = Start()
 if not Started:
     logging.critical("Server failed to start due to an error")
@@ -246,15 +278,30 @@ if StartOnRun:
 
         
 async def WebSocketMain():
+    global WebSocketLoop
+    
+        
+    WebSocketLoop = asyncio.get_running_loop()
     ServerWebsocket = await serve(
         AcceptConnections,
         os.getenv("ServerAddress"),
         int(os.getenv("WebPort"))
     )
     
-    logging.info("Server Successfully started") 
-    await ServerWebsocket.serve_forever()
+    try:
+        logging.info("Server Successfully started")
+        await ServerWebsocket.serve_forever()
+        
 
+
+    finally:
+        await CloseConnections()
+        ServerWebsocket.close()
+        await ServerWebsocket.wait_closed()
+
+
+    
 
 asyncio.run(WebSocketMain())
+
     

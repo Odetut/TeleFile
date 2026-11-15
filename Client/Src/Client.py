@@ -56,7 +56,10 @@ class MainWindow(QMainWindow):
             Success,Err =  Networking.Receive(Input)
 
             if not Success:
-                self.AppCrash(Err) 
+                self.AppCrash(Err)
+            else:
+                self.SwitchWindow("TransferPage")
+                self.findChild(QtWidgets.QLabel,"ActionText").setText("Downloading")
 
         def ExitProgram():
             sys.exit()
@@ -66,6 +69,11 @@ class MainWindow(QMainWindow):
 
             if not Success:
                 self.AppCrash(Err)
+            else:
+                self.SwitchWindow("TransferPage")
+                self.findChild(QtWidgets.QLabel,"ActionText").setText("Uploading")
+                
+
             
 
 

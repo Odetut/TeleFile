@@ -16,10 +16,10 @@ def Receive(Code):
         # We use stream so the entire files contents wont be loaded into RAM at once.
         Response = requests.get(URL,stream=True)
 
-        if Response.headers.get("Filename") is None:
+        if Response.headers.get("FileName") is None:
             Filename = Code
         else:
-            Filename = Response.headers.get("Filename")
+            Filename = Response.headers.get("FileName")
 
         Destination = Path.home() /"Downloads"/f"{Filename}"
 
@@ -36,19 +36,19 @@ def Receive(Code):
     except Exception as e:
         return False,e    
 
+# Deprecated
+# HeartbeatEventObj = threading.Event() 
+# #TODO: This will run on its own thread (As it yeilds)
+# def Heartbeat():
+#     # TODO: Make it so the client pings the server
 
-HeartbeatEventObj = threading.Event() 
-#TODO: This will run on its own thread (As it yeilds)
-def Heartbeat():
-    # TODO: Make it so the client pings the server
+#     while True:
+#         HeartbeatEventObj.clear()
+#         # Send ping here then run .set() if response
 
-    while True:
-        HeartbeatEventObj.clear()
-        # Send ping here then run .set() if response
-
-        if not HeartbeatEventObj.wait(15): # After 15 seconds runs out return false.
-            #Run Cleanup function Here
-            break
+#         if not HeartbeatEventObj.wait(15): # After 15 seconds runs out return false.
+#             #Run Cleanup function Here
+#             break
 
 # Function to send data to the server through HTTP
 def Send(Data,Metadata):
@@ -57,8 +57,8 @@ def Send(Data,Metadata):
         requests.post(f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{SessionId}/Upload",
                         data=Data,
                         headers={
-                            "Filename": Metadata.get("Filename"),
-                            "FileType": Metadata.get("FileType")
+                            "Filename": Metadata.get("FileName"),
+                            "FileType": Metadata.get("FileType") # Change to size
                         })
         return True,None
     except Exception:
@@ -85,28 +85,28 @@ def GetMetadata(FilePath):
     if not os.path.isfile(FilePath):
         return None
     return {
-        "Filename": os.path.basename(FilePath),
-        "FileType": os.path.splitext(FilePath)[1]
+        "FileName": os.path.basename(FilePath),
+        "FileType": os.path.splitext(FilePath)[1] # Change to Size
     }
 
 
 
-def LaunchSocketLEGACY(): #TODO: Timeouts for http and websocket
-    global Socket
-    Socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+# def LaunchSocketLEGACY(): #TODO: Timeouts for http and websocket
+#     global Socket
+#     Socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
-    Socket.connect((os.getenv("ServerAddress"),int(os.getenv("WebPort"))))
-    SessionId = Socket.recv(1024).decode() # Recieve the session ID from the server
-    if SessionId.startswith("SessionID:"):
-        SessionId = SessionId.split(":",1)[1]
+#     Socket.connect((os.getenv("ServerAddress"),int(os.getenv("WebPort"))))
+#     SessionId = Socket.recv(1024).decode() # Recieve the session ID from the server
+#     if SessionId.startswith("SessionID:"):
+#         SessionId = SessionId.split(":",1)[1]
 
-    else:
-        print("Failed to receive a valid SessionID from the server.")
-        return False, "InvalidSessionID"
+#     else:
+#         print("Failed to receive a valid SessionID from the server.")
+#         return False, "InvalidSessionID"
 
 
-    print(f"Connected to server with SessionID: {SessionId}")
-    return True, SessionId
+#     print(f"Connected to server with SessionID: {SessionId}")
+#     return True, SessionId
 
 
 def LaunchSocket():

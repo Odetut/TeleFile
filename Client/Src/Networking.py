@@ -1,23 +1,25 @@
-import socket,requests,os,threading,sys
+import socket,requests,os,threading,sys,websockets
 from dotenv import load_dotenv
 from pathlib import Path
+from websockets.sync.client import connect
 
 load_dotenv()
 
 
+SessionId = None
 
 
 # Recieve the file along with where to write it to.
 def Receive(Code):
     try:
-        URL = f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{Code}"
+        URL = f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{SessionId}/Download/{Code}"
         # We use stream so the entire files contents wont be loaded into RAM at once.
         Response = requests.get(URL,stream=True)
 
-        if Response.headers.get("Filename") is None:
-            Filename = Code
+        if Response.headers.get("FileName") is None:
+            Filename = f"{Code}.bin"
         else:
-            Filename = Response.headers.get("Filename")
+            Filename = Response.headers.get("FileName")
 
         Destination = Path.home() /"Downloads"/f"{Filename}"
 
@@ -35,32 +37,27 @@ def Receive(Code):
         return False,e    
 
 
-HeartbeatEventObj = threading.Event() 
-#TODO: This will run on its own thread (As it yeilds)
-def Heartbeat():
-    # TODO: Make it so the client pings the server
-
-    while True:
-        HeartbeatEventObj.clear()
-        # Send ping here then run .set() if response
-
-        if not HeartbeatEventObj.wait(15): # After 15 seconds runs out return false.
-            #Run Cleanup function Here
-            break
 
 # Function to send data to the server through HTTP
 def Send(Data,Metadata):
     try:
     
-        requests.post(f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{SessionId}/Upload",
+        Response = requests.post(f"http://{os.getenv('ServerAddress')}:{os.getenv('HttpPort')}/{SessionId}/Upload",
                         data=Data,
                         headers={
-                            "Filename": Metadata.get("Filename"),
-                            "FileType": Metadata.get("FileType")
+                            "FileName": Metadata.get("FileName"),
+                            "FileSize": str(Metadata.get("FileSize")) # Change to size
                         })
-        return True,None
+        
     except Exception:
         return False, "SendError"
+
+    if Response.text == "IllegalClient":
+        return False,"Server cant recognise Client"
+    else:
+        return True, Socket.recv(12)
+    
+    
 
 """
 So loading the file isnt fully loaded
@@ -83,35 +80,55 @@ def GetMetadata(FilePath):
     if not os.path.isfile(FilePath):
         return None
     return {
-        "Filename": os.path.basename(FilePath),
-        "FileType": os.path.splitext(FilePath)[1]
+        "FileName": os.path.basename(FilePath),
+        "FileSize": os.path.getsize(FilePath) 
     }
 
+def UpdateSessionId(ID):
+    global SessionId
+    SessionId = ID
 
 
-def LaunchSocket(): #TODO: Timeouts for http and websocket
+
+def LaunchSocket():
     global Socket
-    Socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    try:
+        Socket = connect(f"ws://{os.getenv('ServerAddress')}:{os.getenv('WebPort')}")
+    except Exception:
+        return False,"Failed to connect Websocket"
+    try:
+        SessionId = Socket.recv(30)
+    except Exception:
+        print("Couldnt get a SessionId within reasonable time")
+        return False,"Exceeded reasonable waiting time for Websocket to connect"
 
-    Socket.connect((os.getenv("ServerAddress"),int(os.getenv("WebPort"))))
-    SessionId = Socket.recv(1024).decode() # Recieve the session ID from the server
     if SessionId.startswith("SessionID:"):
         SessionId = SessionId.split(":",1)[1]
-
+        UpdateSessionId(SessionId)
+        return True,SessionId
     else:
-        print("Failed to receive a valid SessionID from the server.")
-        return False, "InvalidSessionID"
+        Socket.close(code=1001,reason="Server provided unexpected input.")
+        return False,f"UnexpectedMsg:{SessionId}"
+
+def Listen(WantedAns):
+    try:
+        Result = Socket.recv(10)
+    except Exception:
+        return False
+
+    if Result == WantedAns:
+        return True
+    else:
+        return False
 
 
-    print(f"Connected to server with SessionID: {SessionId}")
-    return True, SessionId
-
-
-
-
+def CloseSocket(Reason):
+    if not Reason: return False
+    Socket.close(code=1000,reason=Reason)
 
 def Start():
     Success,Result = LaunchSocket()
+
     if not Success:
         return False,Result
 
@@ -119,44 +136,11 @@ def Start():
     
 
 def End():
-    Socket.close()
+    Socket.close(code=1000,reason="Client shutdown")
 
 
 
-# Temporary # 
-"""
-The following may be changed/Moved in the future.
-"""
 
-def Ping(): # We dont instantly return true if the Http responds as we also need the WebSocket to respond. If either fails we return false.
-    # Http Check
-    try:
-        Response = requests.get(f"http://{os.getenv('ServerAddress')}:{os.getenv('Port')}/Ping!")
-        if Response.text == "Pong!":
-            print("Server is reachable via HTTP.")
-        else:
-            print("Server is reachable via HTTP, but got an unexpected response.") 
-            
-    except requests.exceptions.RequestException as e:
-        print(f"Error pinging server: {e}")
-        return False, "HTTPError"
-    
-    # WebSocket Check
-    try:
-        Socket.sendall(b"Ping")
-        # Wait for a response from the server
-        Response = Socket.recv(1024)
-
-        if Response == b"Pong": 
-            # We dont check if its an unexpected response because the message could be intended for another system
-            print("Server is reachable via WebSocket.")
-        return True
-    
-    except socket.error as e:
-        print(f"Error connecting to WebSocket server: {e}")
-        return False, "WebSocketError"
-
-# End of Temporary #
 
 
 def ConnectivityCheck():

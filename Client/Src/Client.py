@@ -46,6 +46,14 @@ class MainWindow(QMainWindow):
         self.DownloadPage.findChild(QtWidgets.QPushButton,"DownloadButton").clicked.connect(lambda:DownloadButtonPress())
         self.CrashPage = self.findChild(QtWidgets.QWidget,"CrashPage")
         self.CrashPage.findChild(QtWidgets.QPushButton,"ExitButton").clicked.connect(lambda: ExitProgram())
+        self.DownloadSuccess = self.findChild(QtWidgets.QWidget,"DownloadSuccess")
+        self.DownloadSuccess.findChild(QtWidgets.QPushButton,"CloseButton").clicked.connect(lambda: ExitProgram())
+
+        self.DownloadSuccess = self.findChild(QtWidgets.QWidget,"UploadSuccess")
+        self.DownloadSuccess.findChild(QtWidgets.QPushButton,"CloseButton_2").clicked.connect(lambda: ExitProgram())
+
+        self.UploadSuccess = self.findChild(QtWidgets.QWidget,"UploadSuccess")
+        self.FileCodeLabel = self.UploadSuccess.findChild(QtWidgets.QLabel,"CodeBox")
         #End of Window defenitions
 
 
@@ -56,16 +64,39 @@ class MainWindow(QMainWindow):
             Success,Err =  Networking.Receive(Input)
 
             if not Success:
-                self.AppCrash(Err) 
+                self.AppCrash(Err)
+            else:
+                self.SwitchWindow("TransferPage")
+                self.findChild(QtWidgets.QLabel,"ActionText").setText("Downloading")
+                Success = Networking.Listen("Done")
+                if Success:
+                    Networking.CloseSocket("Client Shutdown")
+                    self.SwitchWindow("DownloadSuccess")
+
 
         def ExitProgram():
             sys.exit()
 
         def SendButtonPress():
-            Success,Err = Networking.Send(Networking.ReadFile(self.TargetFile),Networking.GetMetadata(self.TargetFile))
+            Success,Result = Networking.Send(Networking.ReadFile(self.TargetFile),Networking.GetMetadata(self.TargetFile))
 
             if not Success:
-                self.AppCrash(Err)
+                self.AppCrash(Result)
+            else:
+                self.SwitchWindow("TransferPage")
+                self.findChild(QtWidgets.QLabel,"ActionText").setText("Uploading")
+                Success = Networking.Listen("Done")
+                if Success:
+                    Networking.CloseSocket("Client Shutdown")
+                    self.SwitchWindow("UploadSuccess")
+                    self.FileCodeLabel.setText(Result)
+                    
+                    
+                    
+
+                
+                
+
             
 
 
@@ -127,8 +158,16 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
+    
     App = QApplication(sys.argv)
+    App.setStyle("Fusion")
     WindowInstance = MainWindow()
+
+    Success,Result = Networking.LaunchSocket()
+    if not Success and DebugModeSwitches["RequiresServer"] is True:
+        WindowInstance.AppCrash(Result)
+
+    
     
     
     

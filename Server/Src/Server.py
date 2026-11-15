@@ -5,7 +5,7 @@ from pathlib import Path
 from websockets.asyncio.server import serve
 
 ##--INIT--##
-StartOnRun = False
+StartOnRun = True
 LoggingDir = (Path(__file__).parent.parent/ "Logs").resolve()
 Uploads = (Path(__file__).parent.parent / "Uploads").resolve()
 dotenv.load_dotenv((Path(__file__).parent.parent / ".env").resolve())
@@ -100,7 +100,7 @@ def Start():
     
 
 # All things that Start() must End()
-def End(FileCache):
+def End(FileCache): #TODO: Path loads too late predefine
     if not FileCache is None:
         with open(Path(__file__).parent / "Metadata.json","w") as File:
             logging.info("Saving Metadata.json...")
@@ -192,28 +192,36 @@ def Callback():
     return "Pong!"
 
 
-@App.route("/<Code>")
-def Download(Code):
+@App.route("/<SessionID>/Download/<Code>")
+def Download(Code,SessionID):
+    if SessionID is None or SessionID not in Clients:
+        return Response("IllegalClient",status=400)
+
     FileName,FileSize = ReadMetadata(Code)
 
     DownloadResponse = Response(
         ReadFile(Code),
         mimetype="application/octet-stream",
         headers= {
-            "Filename" : FileName,
-            "FileSize" : FileSize
+            "FileName" : FileName,
+            "FileSize" : str(FileSize)
             }
         )
     
 
     DownloadResponse.call_on_close(lambda: DeleteFile(Code))
 
+    asyncio.run_coroutine_threadsafe(
+        SendToClient(SessionID, "Done"),WebSocketLoop)
     return DownloadResponse
     
 
 
 @App.route("/<SessionID>/Upload",methods = ["POST"])
 def Upload(SessionID):
+    if SessionID is None or SessionID not in Clients:
+        return Response("IllegalClient",status=400)
+    
     FileCode = CodeGenerator() 
     Check = DuplicateCheck(FileCode)
     while Check: 
@@ -236,9 +244,12 @@ def Upload(SessionID):
 
     
     FileCache[FileCode] = {
-        "Name":request.headers.get("Filename"),
-        "Size":request.headers.get("FileType")   # Change  
+        "FileName":request.headers.get("FileName"),
+        "FileSize":request.headers.get("FileSize")   # Change  
     }
+    asyncio.run_coroutine_threadsafe(
+    SendToClient(SessionID, "Done"),WebSocketLoop)
+    
     return "Recieving"
 
 

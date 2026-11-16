@@ -1,8 +1,13 @@
-import json,secrets,dotenv,string,os,sys,subprocess,asyncio,websockets,threading
-import logging,datetime,atexit
-from flask import Flask,Response,request
-from pathlib import Path
-from websockets.asyncio.server import serve
+ImportSuccess = True
+try:
+    import json,secrets,dotenv,string,os,sys,subprocess,asyncio,websockets,threading
+    import logging,datetime,atexit
+    from flask import Flask,Response,request
+    from pathlib import Path
+    from websockets.asyncio.server import serve
+except Exception:
+    ImportSuccess = False
+
 
 ##--INIT--##
 StartOnRun = True
@@ -11,6 +16,7 @@ Uploads = (Path(__file__).parent.parent / "Uploads").resolve()
 dotenv.load_dotenv((Path(__file__).parent.parent / ".env").resolve())
 WebSocketLoop = None
 Clients = {}
+MetadataDir = Path(__file__).parent / "Metadata.json"
 
 
 FileHandler = logging.FileHandler(LoggingDir / f"{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log")
@@ -57,21 +63,26 @@ def DeleteFile(Code):
 
 
 def Start():
+    if ImportSuccess is False:
     
+        try:
+            subprocess.run([
+            sys.executable, "-m", "pip", "install", "-r",
+            str((Path(__file__).parent.parent / "Requirements.txt").resolve())
+            ],check=True)
+
+            logging.info("Succesfully installed requirements. Please restart the program")
+            sys.exit()
+        
+
+        except subprocess.CalledProcessError:
+            logging.exception("Error installing requirements")
+            return False,None
+        
+
+
     try:
-        subprocess.run([
-        sys.executable, "-m", "pip", "install", "-r",
-        str((Path(__file__).parent.parent / "Requirements.txt").resolve())
-        ],check=True)
-
-    except subprocess.CalledProcessError:
-        logging.exception("Error installing requirements")
-        return False,None
-    logging.info("Succesfully installed requirements continuing Start()")
-
-
-    try:
-        with open( Path(__file__).parent / "Metadata.json","r") as File:
+        with open(Path(__file__).parent / "Metadata.json","r") as File:
             try:
                 FileCache = json.loads(File.read())
             except json.decoder.JSONDecodeError:
@@ -102,7 +113,7 @@ def Start():
 # All things that Start() must End()
 def End(FileCache): #TODO: Path loads too late predefine
     if not FileCache is None:
-        with open(Path(__file__).parent / "Metadata.json","w") as File:
+        with open(MetadataDir,"w") as File:
             logging.info("Saving Metadata.json...")
             File.write(json.dumps(FileCache,indent=4)) 
 

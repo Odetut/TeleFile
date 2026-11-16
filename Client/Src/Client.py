@@ -1,18 +1,52 @@
-from PyQt5 import QtWidgets, uic
-from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget
-from PyQt5.QtGui import QIcon
-import sys, pathlib, Networking
+ImportSuccess = True
+try:
+    from PyQt5 import QtWidgets, uic
+    from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget
+    from PyQt5.QtGui import QIcon
+    import sys, pathlib, Networking,subprocess,logging,datetime
+except Exception:
+    ImportSuccess = False
+LoggingDir = (pathlib.Path(__file__).parent.parent/ "Logs").resolve()
 
+# Debug # 
 DebugModeSwitches = {
-    "RequiresServer": False,
+    "RequiresServer": True,
 
 }
+
+FileHandler = logging.FileHandler(LoggingDir / f"{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log")
+ConsoleHandler = logging.StreamHandler()
+
+LogFormat = logging.Formatter("[%(asctime)s] %(levelname)s - %(message)s")
+
+FileHandler.setFormatter(LogFormat)
+ConsoleHandler.setFormatter(LogFormat)
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    handlers=[FileHandler, ConsoleHandler]
+)
 
 Window = (pathlib.Path(__file__).parent.parent / "UI" / "Main.ui").resolve()
 
 AppIcon = QIcon(str((pathlib.Path(__file__).parent.parent / "Images" / "Logo.ico").resolve()))
 
+if ImportSuccess is False:
+    try:
+        subprocess.run([
+        sys.executable, "-m", "pip", "install", "-r",
+        str((pathlib.Path(__file__).parent.parent / "Requirements.txt").resolve())
+        ],check=True)
+        logging.log("Succesdsfully installed requirements. Please restart")
 
+        
+        sys.exit()
+        
+    except subprocess.CalledProcessError:
+        logging.critical("Failed to install Dependencies")
+        sys.exit()
+        
+        
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -92,19 +126,7 @@ class MainWindow(QMainWindow):
                     self.FileCodeLabel.setText(Result)
                     
                     
-                    
-
-                
-                
-
-            
-
-
-
-
-
-
-
+        
 
         Success = Networking.ConnectivityCheck()
         if not Success and DebugModeSwitches["RequiresServer"] == True:
@@ -165,36 +187,12 @@ if __name__ == "__main__":
 
     Success,Result = Networking.LaunchSocket()
     if not Success and DebugModeSwitches["RequiresServer"] is True:
-        WindowInstance.AppCrash(Result)
+        WindowInstance.SwitchWindow("ServerNotFound")
+        
 
     
     
     
-    
-
-
-
-
-
-
-
-
-   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 sys.exit(App.exec_())

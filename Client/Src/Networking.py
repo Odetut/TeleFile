@@ -1,4 +1,4 @@
-import socket,requests,os,threading,sys,websockets
+import requests,os,threading,sys,websockets
 from dotenv import load_dotenv
 from pathlib import Path
 from websockets.sync.client import connect
